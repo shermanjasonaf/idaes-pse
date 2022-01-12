@@ -92,10 +92,12 @@ if __name__ == "__main__":
               "Charge [MWh]: ", pyo.value(block.battery.soc))
 
     # first and second-stage vars
-    fs_vars = []
+    fs_vars = [blks[0].rankine.fs.boiler.inlet.flow_mol[0], 
+               blks[0].rankine.P_to_grid, blks[0].battery.discharge]
     ss_vars = [blks[i].rankine.fs.boiler.inlet.flow_mol[0]
-               for i in range(n_time_points)]
-    ss_vars += [blks[i].rankine.P_to_grid for i in range(n_time_points)]
+               for i in range(1, n_time_points)]
+    ss_vars += [blks[i].rankine.P_to_grid for i in range(1, n_time_points)]
+    ss_vars += [blks[i].battery.discharge for i in range(1, n_time_points)]
 
     # uncertain parameters
     uncertain_params = [blks[i].lmp_signal for i in range(n_time_points)]
@@ -103,10 +105,17 @@ if __name__ == "__main__":
     # solve with PyROS
     solve_pyros = True
 
+    for con in m.component_data_objects(pyo.Constraint, active=True):
+        if not con.equality:
+            con.pprint()
+
+    for expr in m.component_data_objects(pyo.Expression, active=True):
+        print(expr.name)
+
     if solve_pyros:
         # solvers for PyROS
         local_solver = pyo.SolverFactory('ipopt')
-        global_solver = pyo.SolverFactory('baron')
+        global_solver = pyo.SolverFactory('ipopt')
         pyros_solver = pyo.SolverFactory('pyros')
 
         results = pyros_solver.solve(model=mp_rankine.pyomo_model,
@@ -116,9 +125,9 @@ if __name__ == "__main__":
                                      uncertainty_set=lmp_set.pyros_set(),
                                      local_solver=local_solver,
                                      global_solver=global_solver,
-                                     decision_rule_order=0,
+                                     decision_rule_order=1,
                                      keepfiles=True,
-                                     objective_focus=pyros.ObjectiveType.
-                                     worst_case,
-                                     tee=True,
+                                     objective_focus=pyros.ObjectiveType.worst_case,
+                                     tee=False,
+                                     bypass_global_separation=True,
                                      subproblem_file_directory='./sublogs/')
