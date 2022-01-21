@@ -95,7 +95,7 @@ class LMPBoxSet():
 
         # highlight peak effects if desired
         times = np.arange(len(self.lmp_sig_nom))
-        if self.include_peak_effects and highlight_peak_effects:
+        if highlight_peak_effects:
             hours_of_day = (times + self.start_day_hour) % 24
             at_sunrise = np.logical_and(hours_of_day >= 6, hours_of_day <= 8)
             at_sunset = np.logical_and(hours_of_day >= 18, hours_of_day <= 20)
@@ -304,9 +304,9 @@ if __name__ == "__main__":
 
     hyster_set = HysterLMPBoxSet(lmp_data, n_recent, growth_rate, mov_avg_mult,
                                  hyster_latency, start_day_hour=0,
-                                 include_peak_effects=True)
+                                 include_peak_effects=False)
     print("Bounds valid:", hyster_set.bounds_valid())
-    hyster_set.plot_bounds(highlight_peak_effects=True)
+    hyster_set.plot_bounds(highlight_peak_effects=False)
 
     # constant_set = ConstantUncertaintyBoxSet(lmp_data, 10)
     # constant_set.plot_bounds()
