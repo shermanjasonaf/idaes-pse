@@ -39,7 +39,7 @@ def get_lmp_data(n_time_points, start=0):
 
 
 class LMPBoxSet():
-    def __init__(self, lmp_data):
+    def __init__(self, lmp_data, include_peak_effects=False, start_day_hour=0):
         self.lmp_sig_nom = lmp_data
         self.n_time_points = len(lmp_data)
 
@@ -76,7 +76,7 @@ class LMPBoxSet():
         """Obtain corresponding PyROS BoxSet."""
         return uncertainty_sets.BoxSet(bounds=self.bounds())
 
-    def plot_bounds(self):
+    def plot_bounds(self, highlight_peak_effects=False):
         """Plot LMP bounds against planning period."""
         bounds = self.bounds()
 
@@ -87,14 +87,38 @@ class LMPBoxSet():
         color = "black"
 
         # generate the plots
-        plt.plot(upper_bds, "--", color=color, label='upper', linewidth=1.0)
-        plt.plot(self.lmp_sig_nom, color=color, label='nominal', linewidth=1.8)
-        plt.plot(lower_bds, "--", color=color, label='lower', linewidth=1.0)
+        plt.plot(upper_bds, "--", color="green", linewidth=1.0)
+        plt.plot(lower_bds, "--", color="green", label='all times',
+                 linewidth=1.0)
         plt.fill_between(range(len(lower_bds)), lower_bds, upper_bds,
-                         color=color, alpha=0.1)
-        plt.xlabel('period')
-        plt.ylabel('LMP signal')
-        # plt.legend()
+                         color="green", alpha=0.1)
+
+        # highlight peak effects if desired
+        times = np.arange(len(self.lmp_sig_nom))
+        if self.include_peak_effects and highlight_peak_effects:
+            hours_of_day = (times + self.start_day_hour) % 24
+            at_sunrise = np.logical_and(hours_of_day >= 6, hours_of_day <= 8)
+            at_sunset = np.logical_and(hours_of_day >= 18, hours_of_day <= 20)
+            
+            for cond in [at_sunrise, at_sunset]:
+                peak_times = cond
+                # plot bounds and LMP signal
+                peak_hrs = times[peak_times]
+                plt.plot(peak_hrs, upper_bds[peak_times], "--", color="red",
+                         linewidth=1.0)
+                plt.plot(peak_hrs, lower_bds[peak_times], "--", color="red",
+                         label='peak times', linewidth=1.0)
+                plt.fill_between(peak_hrs, lower_bds[peak_times],
+                                 upper_bds[peak_times],
+                                 color="red", alpha=0.1)
+        
+        # plot nominal LMP
+        plt.plot(self.lmp_sig_nom, color=color, label='nominal', linewidth=1.8)
+
+        # labels
+        plt.xlabel('period (hr)')
+        plt.ylabel('LMP signal ($/MWh)')
+        plt.legend()
 
         plt.show()
 
@@ -236,6 +260,35 @@ class ExpandDiffSet(LMPBoxSet):
         return [(lb, ub) for lb, ub in zip(lower_bounds, upper_bounds)]
 
 
+class TimeFcnDiffUncertaintySet(LMPBoxSet):
+    def __init__(self, lmp_data, lower_bound_func, upper_bound_func,
+                 include_peak_effects=True, start_day_hour=0):
+        self.lmp_sig_nom = lmp_data
+        self.lower_bound_func = lower_bound_func
+        self.upper_bound_func = upper_bound_func
+        self.include_peak_effects = include_peak_effects
+        self.start_day_hour = start_day_hour
+
+    def bounds(self):
+        lmp_sig = np.array(self.lmp_sig_nom)
+        times = np.arange(len(self.lmp_sig_nom))
+        lower_bounds = lmp_sig - self.lower_bound_func(times)
+        upper_bounds = lmp_sig + self.upper_bound_func(times)
+
+        if self.include_peak_effects:
+            hours_of_day = (times + self.start_day_hour) % 24
+            at_sunrise = np.logical_and(hours_of_day >= 6, hours_of_day <= 8)
+            at_sunset = np.logical_and(hours_of_day >= 18, hours_of_day <= 20)
+            peak_times = np.logical_or(at_sunrise, at_sunset)
+            lower_bounds[peak_times] -= (self.lmp_sig_nom[peak_times]
+                                         - lower_bounds[peak_times]) * 0.5
+            upper_bounds[peak_times] -= (self.lmp_sig_nom[peak_times]
+                                         - upper_bounds[peak_times]) * 0.5
+            # lb = max(0, lb) if self.lmp_sig_nom[time] > 0 else lb
+
+        return [(lower_bounds[time], upper_bounds[time]) for time in times]
+
+
 if __name__ == "__main__":
     # decide set parameters
     n_periods = 24
@@ -253,9 +306,20 @@ if __name__ == "__main__":
                                  hyster_latency, start_day_hour=0,
                                  include_peak_effects=True)
     print("Bounds valid:", hyster_set.bounds_valid())
-    hyster_set.plot_bounds()
+    hyster_set.plot_bounds(highlight_peak_effects=True)
 
-    constant_set = ConstantUncertaintyBoxSet(lmp_data, 10)
+    # constant_set = ConstantUncertaintyBoxSet(lmp_data, 10)
     # constant_set.plot_bounds()
-    expand_set = ExpandDiffSet(lmp_data, growth_rate)
+    # expand_set = ExpandDiffSet(lmp_data, growth_rate)
     # expand_set.plot_bounds()
+
+    # time-dependent box set
+    def lb_func(time):
+        return 1.0 * time 
+
+    def ub_func(time):
+        return lb_func(time)
+
+    time_set = TimeFcnDiffUncertaintySet(lmp_data, lb_func, ub_func,
+                                         include_peak_effects=False)
+    time_set.plot_bounds(highlight_peak_effects=True)
