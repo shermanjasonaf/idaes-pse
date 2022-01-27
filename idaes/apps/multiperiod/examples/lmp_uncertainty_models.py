@@ -201,7 +201,7 @@ class HysterLMPBoxSet(SimpleLMPBoxSet):
             time_low = max(0, time - self.latency)
             time_high = min(self.n_time_points, time + self.latency + 1)
             lb = max(0, self.lmp_sig_nom[time] * (1 - multipliers[time]))
-            if np.any(self.lmp_sig_nom[time_low:time_high] == 0):
+            if np.any(self.lmp_sig_nom[time_low:time_high] <= 0):
                 periods_since_drop = range(time_low, time)
                 if len(periods_since_drop) != 0:
                     avg_lb = (sum(lmp_bounds[t][0] for t in periods_since_drop)
