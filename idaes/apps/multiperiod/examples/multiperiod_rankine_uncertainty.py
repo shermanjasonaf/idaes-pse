@@ -121,16 +121,18 @@ if __name__ == "__main__":
         global_solver = pyo.SolverFactory('ipopt')
         pyros_solver = pyo.SolverFactory('pyros')
 
-        results = pyros_solver.solve(model=mp_rankine.pyomo_model,
-                                     first_stage_variables=fs_vars,
-                                     second_stage_variables=ss_vars,
-                                     uncertain_params=uncertain_params,
-                                     uncertainty_set=lmp_set.pyros_set(),
-                                     local_solver=local_solver,
-                                     global_solver=global_solver,
-                                     decision_rule_order=1,
-                                     keepfiles=True,
-                                     objective_focus=pyros.ObjectiveType.worst_case,
-                                     tee=False,
-                                     bypass_global_separation=True,
-                                     subproblem_file_directory='./sublogs/')
+        results = pyros_solver.solve(
+            model=mp_rankine.pyomo_model,
+            first_stage_variables=fs_vars,
+            second_stage_variables=ss_vars,
+            uncertain_params=uncertain_params,
+            uncertainty_set=lmp_set.pyros_set(),
+            local_solver=local_solver,
+            global_solver=global_solver,
+            decision_rule_order=1,
+            keepfiles=True,
+            objective_focus=pyros.ObjectiveType.worst_case,
+            tee=False,
+            bypass_global_separation=True,
+            subproblem_file_directory='./sublogs/'
+        )
