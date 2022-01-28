@@ -23,12 +23,10 @@ def create_ss_rankine_model():
     # initialize the model
     if os.path.exists(initialize_json_filename):
         from_json(m.rankine, fname=initialize_json_filename, gz=True)
-        print("on the next one")
     else:
         m.rankine = initialize_model(m.rankine)
         to_json(m.rankine, fname=initialize_json_filename,
                 gz=True, human_read=True)
-        print("Done.")
 
     m.rankine = close_flowsheet_loop(m.rankine)
     m.rankine = add_operating_cost(m.rankine)
