@@ -3,8 +3,13 @@ import numpy as np
 from random import random
 from idaes.apps.multiperiod.multiperiod import MultiPeriodModel
 from idaes.apps.rankine.simple_rankine_cycle import create_model, set_inputs, initialize_model, close_flowsheet_loop, add_operating_cost
+import os
+from idaes.core.util import to_json, from_json
 
 #Example driver for multiperiod.py using a simple rankine cycle
+
+
+initialize_json_filename = "./initialized_state.json.gz"
 
 #Create a steady-state ranking cycle model, not yet setup for multi-period
 def create_ss_rankine_model():
@@ -14,7 +19,17 @@ def create_ss_rankine_model():
     m = pyo.ConcreteModel()
     m.rankine = create_model(heat_recovery=True)
     m.rankine = set_inputs(m.rankine)
-    m.rankine = initialize_model(m.rankine)
+
+    # initialize the model
+    if os.path.exists(initialize_json_filename):
+        from_json(m.rankine, fname=initialize_json_filename, gz=True)
+        print("on the next one")
+    else:
+        m.rankine = initialize_model(m.rankine)
+        to_json(m.rankine, fname=initialize_json_filename,
+                gz=True, human_read=True)
+        print("Done.")
+
     m.rankine = close_flowsheet_loop(m.rankine)
     m.rankine = add_operating_cost(m.rankine)
 
@@ -124,6 +139,10 @@ def create_mp_rankine_model(n_time_points, lmp_signal):
 
     # create the multiperiod object
     mp_rankine.build_multi_period_model(data_kwargs)
+
+    # remove json file used for ss rankine block initialization
+    if os.path.exists(initialize_json_filename):
+        os.remove(initialize_json_filename)
 
     return mp_rankine
 
