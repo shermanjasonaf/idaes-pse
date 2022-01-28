@@ -12,7 +12,7 @@ import multiperiod_rankine_cycle as mc
 import pyomo.environ as pyo
 import matplotlib.pyplot as plt
 import pyomo.contrib.pyros as pyros
-from lmp_uncertainty_models import get_lmp_data, SimpleLMPBoxSet
+from lmp_uncertainty_models import get_lmp_data, HysterLMPBoxSet
 
 
 def plot_results(mp_model, lmp_signal):
@@ -58,17 +58,20 @@ def plot_results(mp_model, lmp_signal):
 
 if __name__ == "__main__":
     # parameterization of uncertainty set
+    start = 4000
     n_time_points = 7
-    n_recent = 2
+    n_recent = 4
     box_growth_rate = 0.02
     moving_avg_multiplier = 0.1
+    hyster_latency = 1
 
     # get LMP data
-    lmp_signal = get_lmp_data(n_time_points)
+    lmp_signal = get_lmp_data(n_time_points, start=start)
 
     # construct container for uncertainty set
-    lmp_set = SimpleLMPBoxSet(lmp_signal, n_recent, box_growth_rate,
-                              moving_avg_multiplier)
+    lmp_set = HysterLMPBoxSet(lmp_signal, n_recent, box_growth_rate,
+                              moving_avg_multiplier, hyster_latency,
+                              start_day_hour=0, include_peak_effects=True)
 
     # create model
     mp_rankine = mc.create_mp_rankine_model(n_time_points, lmp_signal)
@@ -80,11 +83,11 @@ if __name__ == "__main__":
     # set objective function, fix initial state, and solve deterministically
     m.obj = pyo.Objective(expr=sum([blk.cost for blk in blks]))
     blks[0].battery.soc.fix(0)
-    solver = pyo.SolverFactory('ipopt')
-    solver.solve(m, tee=False)
+    # solver = pyo.SolverFactory('ipopt')
+    # solver.solve(m, tee=False)
 
     # plot the results
-    plot_results(mp_rankine, lmp_signal)
+    # plot_results(mp_rankine, lmp_signal)
 
     # check results
     for block in blks:
