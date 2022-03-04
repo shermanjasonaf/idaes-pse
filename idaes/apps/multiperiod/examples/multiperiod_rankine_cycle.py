@@ -61,8 +61,6 @@ def count_degrees_of_freedom(block, control_vars=None):
         for var in identify_variables(con.body)
         if not var.fixed and var not in cvar_set
     )
-    for var in control_vars:
-        print(var.name)
 
     m = block.clone()
     for var in control_vars:
