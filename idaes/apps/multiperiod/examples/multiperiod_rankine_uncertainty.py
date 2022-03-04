@@ -105,15 +105,18 @@ if __name__ == "__main__":
     # uncertain parameters
     uncertain_params = [blks[i].lmp_signal for i in range(n_time_points)]
 
+    # check results
+    from idaes.apps.multiperiod.examples.multiperiod_rankine_cycle import (
+        count_degrees_of_freedom,
+    )
+    print(
+        "Degrees of Freedom (orig):",
+        count_degrees_of_freedom(mp_rankine.pyomo_model,
+                                 control_vars=fs_vars + ss_vars)
+    )
+
     # solve with PyROS
     solve_pyros = True
-
-    for con in m.component_data_objects(pyo.Constraint, active=True):
-        if not con.equality:
-            con.pprint()
-
-    for expr in m.component_data_objects(pyo.Expression, active=True):
-        print(expr.name)
 
     if solve_pyros:
         # solvers for PyROS

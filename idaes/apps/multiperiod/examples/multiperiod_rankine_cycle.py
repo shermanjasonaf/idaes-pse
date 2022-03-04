@@ -6,13 +6,59 @@ from idaes.apps.rankine.simple_rankine_cycle import create_model, set_inputs, in
 import os
 from idaes.core.util import to_json, from_json
 
-#Example driver for multiperiod.py using a simple rankine cycle
+
+# Example driver for multiperiod.py using a simple rankine cycle
+
+
+def is_equality(con):
+    return (
+        con.lower is not None
+        and con.upper is not None
+        and pyo.value(con.lower) == pyo.value(con.upper)
+    )
+
+
+def count_degrees_of_freedom(block, control_vars=None):
+    """
+    Count the number of equality constraints in a block
+    and state variables participating in those constraints.
+    """
+    from pyomo.common.collections import ComponentSet
+    from pyomo.core.expr.visitor import identify_variables
+    from idaes.apps.rankine.simple_rankine_cycle import degrees_of_freedom
+
+    if control_vars is None:
+        cvar_set = ComponentSet()
+    else:
+        cvar_set = ComponentSet(control_vars)
+
+    cons = [con for con in block.component_data_objects(pyo.Constraint,
+            active=True, descend_into=True)
+            if is_equality(con)]
+    svars = ComponentSet(
+        var
+        for con in cons
+        for var in identify_variables(con.body)
+        if not var.fixed and var not in cvar_set
+    )
+    for var in control_vars:
+        print(var.name)
+
+    m = block.clone()
+    for var in control_vars:
+        m.find_component(var.name).fix()
+
+    print("Num variables:", len(svars), "Num constraints:", len(cons))
+    print("Degrees of freedom (this function):", len(svars) - len(cons))
+    print("Degrees of freedom (idaes util):", degrees_of_freedom(m))
+    return len(svars) - len(cons)
 
 
 initialize_json_filename = "./initialized_state.json.gz"
 
-#Create a steady-state ranking cycle model, not yet setup for multi-period
+
 def create_ss_rankine_model():
+    # Create a steady-state ranking cycle model, not yet setup for multi-period
     p_lower_bound = 300
     p_upper_bound = 450
 
