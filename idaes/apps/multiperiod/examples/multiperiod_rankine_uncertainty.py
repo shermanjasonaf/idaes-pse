@@ -5,14 +5,20 @@ Created on 2021-11-11 Thu 05:18:42
 
 @author: jasherma
 
-Two-stage RO model of a multiperiod rankine cycle
+Two-stage robust optimization model of a multiperiod rankine cycle.
 """
 
-import multiperiod_rankine_cycle as mc
-import pyomo.environ as pyo
+
 import matplotlib.pyplot as plt
+
+import pyomo.environ as pyo
 import pyomo.contrib.pyros as pyros
-from lmp_uncertainty_models import get_lmp_data, HysterLMPBoxSet
+
+from idaes.apps.multiperiod.examples.lmp_uncertainty_models import (
+    get_lmp_data,
+    HysterLMPBoxSet,
+)
+import idaes.apps.multiperiod.examples.multiperiod_rankine_cycle as mc
 
 
 def plot_results(mp_model, lmp_signal):
@@ -26,33 +32,34 @@ def plot_results(mp_model, lmp_signal):
 
     # get SOC and power output results from model
     soc_list = [pyo.value(blks[i].battery.soc) for i in range(n_time_points)]
-    power_outputs = [pyo.value(blks[i].rankine.power_output)
-                     for i in range(n_time_points)]
+    power_outputs = [
+        pyo.value(blks[i].rankine.power_output) for i in range(n_time_points)
+    ]
 
     fig, ax1 = plt.subplots(figsize=(12, 8))
 
     # plot state of charge
-    ax1.plot(soc_list, 'r')
-    ax1.set_xlabel('Time (hrs)')
-    ax1.set_ylabel('State of Charge (MWh)', color='red')
-    ax1.tick_params(axis='y', labelcolor='red')
+    ax1.plot(soc_list, "r")
+    ax1.set_xlabel("Time (hrs)")
+    ax1.set_ylabel("State of Charge (MWh)", color="red")
+    ax1.tick_params(axis="y", labelcolor="red")
 
     ax2 = ax1.twinx()
-    ax2.set_ylabel('LMP Signal ($/MWh)', color='black')
-    ax2.plot(lmp_signal, 'k')
+    ax2.set_ylabel("LMP Signal ($/MWh)", color="black")
+    ax2.plot(lmp_signal, "k")
     plt.show()
 
     # plot power output
     fig, ax1 = plt.subplots(figsize=(12, 8))
 
-    ax1.plot(power_outputs, 'r')
-    ax1.set_xlabel('Time (hrs)')
-    ax1.set_ylabel('Power Output (MWh)', color='red')
-    ax1.tick_params(axis='y', labelcolor='red')
+    ax1.plot(power_outputs, "r")
+    ax1.set_xlabel("Time (hrs)")
+    ax1.set_ylabel("Power Output (MWh)", color="red")
+    ax1.tick_params(axis="y", labelcolor="red")
 
     ax2 = ax1.twinx()
-    ax2.set_ylabel('LMP Signal ($/MWh)', color='black')
-    ax2.plot(lmp_signal, 'k')
+    ax2.set_ylabel("LMP Signal ($/MWh)", color="black")
+    ax2.plot(lmp_signal, "k")
     plt.show()
 
 
@@ -69,9 +76,15 @@ if __name__ == "__main__":
     lmp_signal = get_lmp_data(n_time_points, start=start)
 
     # construct container for uncertainty set
-    lmp_set = HysterLMPBoxSet(lmp_signal, n_recent, box_growth_rate,
-                              moving_avg_multiplier, hyster_latency,
-                              start_day_hour=0, include_peak_effects=True)
+    lmp_set = HysterLMPBoxSet(
+        lmp_signal,
+        n_recent,
+        box_growth_rate,
+        moving_avg_multiplier,
+        hyster_latency,
+        start_day_hour=0,
+        include_peak_effects=True,
+    )
 
     # create model
     mp_rankine = mc.create_mp_rankine_model(n_time_points, lmp_signal)
@@ -91,14 +104,23 @@ if __name__ == "__main__":
 
     # check results
     for block in blks:
-        print("Dispatch [MW]: ", pyo.value(block.rankine.power_output),
-              "Charge [MWh]: ", pyo.value(block.battery.soc))
+        print(
+            "Dispatch [MW]: ",
+            pyo.value(block.rankine.power_output),
+            "Charge [MWh]: ",
+            pyo.value(block.battery.soc),
+        )
 
     # first and second-stage vars
-    fs_vars = [blks[0].rankine.fs.boiler.inlet.flow_mol[0], 
-               blks[0].rankine.P_to_grid, blks[0].battery.discharge]
-    ss_vars = [blks[i].rankine.fs.boiler.inlet.flow_mol[0]
-               for i in range(1, n_time_points)]
+    fs_vars = [
+        blks[0].rankine.fs.boiler.inlet.flow_mol[0],
+        blks[0].rankine.P_to_grid,
+        blks[0].battery.discharge,
+    ]
+    ss_vars = [
+        blks[i].rankine.fs.boiler.inlet.flow_mol[0]
+        for i in range(1, n_time_points)
+    ]
     ss_vars += [blks[i].rankine.P_to_grid for i in range(1, n_time_points)]
     ss_vars += [blks[i].battery.discharge for i in range(1, n_time_points)]
 
@@ -109,10 +131,12 @@ if __name__ == "__main__":
     from idaes.apps.multiperiod.examples.multiperiod_rankine_cycle import (
         count_degrees_of_freedom,
     )
+
     print(
         "Degrees of Freedom (orig):",
-        count_degrees_of_freedom(mp_rankine.pyomo_model,
-                                 control_vars=fs_vars + ss_vars)
+        count_degrees_of_freedom(
+            mp_rankine.pyomo_model, control_vars=fs_vars + ss_vars
+        ),
     )
 
     # solve with PyROS
@@ -120,9 +144,9 @@ if __name__ == "__main__":
 
     if solve_pyros:
         # solvers for PyROS
-        local_solver = pyo.SolverFactory('ipopt')
-        global_solver = pyo.SolverFactory('ipopt')
-        pyros_solver = pyo.SolverFactory('pyros')
+        local_solver = pyo.SolverFactory("ipopt")
+        global_solver = pyo.SolverFactory("ipopt")
+        pyros_solver = pyo.SolverFactory("pyros")
 
         results = pyros_solver.solve(
             model=mp_rankine.pyomo_model,
@@ -137,5 +161,5 @@ if __name__ == "__main__":
             objective_focus=pyros.ObjectiveType.worst_case,
             tee=False,
             bypass_global_separation=True,
-            subproblem_file_directory='./sublogs/'
+            subproblem_file_directory="./sublogs/",
         )
