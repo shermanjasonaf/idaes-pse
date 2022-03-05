@@ -38,7 +38,7 @@ def is_equality(con):
     )
 
 
-def count_degrees_of_freedom(block, control_vars=None):
+def count_degrees_of_freedom(block, control_vars=None, print_results=False):
     """
     Count the number of equality constraints in a block
     and state variables participating in those constraints.
@@ -55,6 +55,7 @@ def count_degrees_of_freedom(block, control_vars=None):
         )
         if is_equality(con)
     ]
+
     svars = ComponentSet(
         var
         for con in cons
@@ -62,13 +63,21 @@ def count_degrees_of_freedom(block, control_vars=None):
         if not var.fixed and var not in cvar_set
     )
 
-    m = block.clone()
     for var in control_vars:
-        m.find_component(var.name).fix()
+        block.find_component(var.name).fix()
 
-    print("Num variables:", len(svars), "Num constraints:", len(cons))
-    print("Degrees of freedom (this function):", len(svars) - len(cons))
-    print("Degrees of freedom (idaes util):", degrees_of_freedom(m))
+    if print_results:
+        print("=" * 60)
+        print("Num state variables:", len(svars))
+        print("Num equality constraints:", len(cons))
+        print("-" * 60)
+        print("Degrees of freedom (this function):", len(svars) - len(cons))
+        print("Degrees of freedom (idaes util):", degrees_of_freedom(block))
+        print("=" * 60)
+
+    for var in control_vars:
+        block.find_component(var.name).unfix()
+
     return len(svars) - len(cons)
 
 
