@@ -122,9 +122,6 @@ def create_ss_rankine_model():
 
     return m
 
-    # Create a multiperiod capable steady-state rankine cycle model. This is a
-    # user-provided function to a MultiPeriod class
-
 
 def create_mp_rankine_block(lmp_signal):
     """
